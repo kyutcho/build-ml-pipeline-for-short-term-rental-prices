@@ -28,6 +28,9 @@ def go(config: DictConfig):
     os.environ["WANDB_PROJECT"] = config["main"]["project_name"]
     os.environ["WANDB_RUN_GROUP"] = config["main"]["experiment_name"]
 
+    # Get the path at the root of the MLflow project
+    root_path = hydra.utils.get_original_cwd()
+
     # Steps to execute
     steps_par = config['main']['steps']
     active_steps = steps_par.split(",") if steps_par != "all" else _steps
@@ -38,8 +41,8 @@ def go(config: DictConfig):
         if "download" in active_steps:
             # Download file and load in W&B
             _ = mlflow.run(
-                f"{config['main']['components_repository']}/get_data",
-                "main",
+                uri: f"{config['main']['components_repository']}/get_data",
+                entry_points: "main",
                 parameters={
                     "sample": config["etl"]["sample"],
                     "artifact_name": "sample.csv",
@@ -49,10 +52,19 @@ def go(config: DictConfig):
             )
 
         if "basic_cleaning" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+            # Performs basic data cleaning and log on W&B
+            artifact_version = ":latest"
+            _ = mlflow.run(
+                uri: os.path.join(root_path, "basic_cleaning"),
+                entry_point: "main",
+                parameters={
+                    "input_artifact": config["etl"]["sample"],
+                    "artifact_name": "sample.csv",
+                    "artifact_type": "raw_data",
+                    "artifact_description": "Raw file as downloaded"
+                },
+            )
+
 
         if "data_check" in active_steps:
             ##################
