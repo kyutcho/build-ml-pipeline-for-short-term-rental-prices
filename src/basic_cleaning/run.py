@@ -37,6 +37,7 @@ def go(args):
     # Convert last_review to datetime
     df['last_review'] = pd.to_datetime(df['last_review'])
 
+    
     df.to_csv("clean_sample.csv", index=False)
 
     logger.info("Saving artifact")
