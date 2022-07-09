@@ -26,7 +26,7 @@ def go(args):
         args.artifact_type,
         args.artifact_description,
         os.path.join("data", args.sample),
-        # run,
+        run,
     )
 
 
