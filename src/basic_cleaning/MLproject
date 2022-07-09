@@ -4,23 +4,36 @@ conda_env: conda.yml
 entry_points:
   main:
     parameters:
-
       input_artifact:
-        description: ## ADD DESCRIPTION
-        type: string
+        description: Path to the input file
+        type: uri
 
-       artifact_name:
-        description: ## ADD DESCRIPTION
-        type: string
+      artifact_name:
+        description: Name for the artifact
+        type: str
 
-       artifact_type:
-        description: ## ADD DESCRIPTION
-        type: string
+      artifact_type:
+        description: Type for the artifact
+        type: str
 
-       artifact_description:
-        description: ## ADD DESCRIPTION
-        type: string
+      artifact_description:
+        description: Description of the artifact
+        type: str
 
+      min_price:
+        description: Minimum price threshold to be set above 5 percentile by default
+        type: float
+        default: 40
+
+      max_price:
+        description: Maximum price threshold to be set below 95 percentile by default
+        type: float
+        default: 350
 
     command: >-
-        python run.py  --input_artifact {input_artifact}  -- artifact_name { artifact_name}  -- artifact_type { artifact_type}  -- artifact_description { artifact_description} 
+        python run.py  --input_artifact {input_artifact} \
+                       --artifact_name {artifact_name} \
+                       --artifact_type {artifact_type} \
+                       --artifact_description {artifact_description} \
+                       --min_price {min_price} \
+                       --max_price {max_price}

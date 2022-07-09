@@ -16,7 +16,7 @@ _steps = [
     # NOTE: We do not include this in the steps so it is not run by mistake.
     # You first need to promote a model export to "prod" before you can run this,
     # then you need to run this step explicitly
-#    "test_regression_model"
+   "test_regression_model"
 ]
 
 
@@ -41,8 +41,8 @@ def go(config: DictConfig):
         if "download" in active_steps:
             # Download file and load in W&B
             _ = mlflow.run(
-                uri: f"{config['main']['components_repository']}/get_data",
-                entry_points: "main",
+                os.path.join(root_path, 'components', 'get_data'),
+                "main",
                 parameters={
                     "sample": config["etl"]["sample"],
                     "artifact_name": "sample.csv",
@@ -55,52 +55,83 @@ def go(config: DictConfig):
             # Performs basic data cleaning and log on W&B
             artifact_version = ":latest"
             _ = mlflow.run(
-                uri: os.path.join(root_path, "basic_cleaning"),
-                entry_point: "main",
+                os.path.join(root_path, "src", "basic_cleaning"),
+                "main",
                 parameters={
-                    "input_artifact": config["etl"]["sample"],
-                    "artifact_name": "sample.csv",
-                    "artifact_type": "raw_data",
-                    "artifact_description": "Raw file as downloaded"
+                    "input_artifact": "sample.csv" + artifact_version,
+                    "artifact_name": "cleaned_data.csv",
+                    "artifact_type": "cleaned_data",
+                    "artifact_description": "Data after basic cleaning step",
+                    "min_price": config["etl"]["min_price"],
+                    "max_price": config["etl"]["max_price"]
                 },
             )
 
 
         if "data_check" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+            artifact_version = ":latest"
+            _ = mlflow.run(
+                os.path.join(root_path, "src", "data_check"),
+                "main",
+                parameters={
+                    "csv": "cleaned_data.csv" + artifact_version,
+                    "ref": "cleaned_data.csv" + ":reference",
+                    "kl_threshold": config["data_check"]["kl_threshold"],
+                    "min_price": config["etl"]["min_price"],
+                    "max_price": config["etl"]["max_price"]
+                },
+            )
 
         if "data_split" in active_steps:
-            ##################
-            # Implement here #
-            ##################
-            pass
+            artifact_version = ":latest"
+            _ = mlflow.run(
+                os.path.join(root_path, 'components', 'train_val_test_split'),
+                entry_point="main",
+                parameters={
+                    "input": "cleaned_data.csv" + artifact_version,
+                    "test_size": config["modeling"]["test_size"],
+                    "random_seed": config["modeling"]["random_seed"],
+                    "stratify_by": config["modeling"]["stratify_by"]
+                },
+            )
 
         if "train_random_forest" in active_steps:
 
             # NOTE: we need to serialize the random forest configuration into JSON
-            rf_config = os.path.abspath("rf_config.json")
+            # Comment out the default rf_config. Use prod config instead
+            # rf_config = os.path.abspath("rf_config.json")
+            rf_config = os.path.join(root_path, "multirun/2022-07-08/21-28-49/2/rf_config.json")
             with open(rf_config, "w+") as fp:
                 json.dump(dict(config["modeling"]["random_forest"].items()), fp)  # DO NOT TOUCH
 
             # NOTE: use the rf_config we just created as the rf_config parameter for the train_random_forest
             # step
-
-            ##################
-            # Implement here #
-            ##################
-
-            pass
+            artifact_version = ":latest"
+            _ = mlflow.run(
+                os.path.join(root_path, 'src', 'train_random_forest'),
+                entry_point="main",
+                parameters={
+                    "trainval_artifact": "trainval_data.csv" + artifact_version,
+                    "val_size": config["modeling"]["val_size"],
+                    "random_seed": config["modeling"]["random_seed"],
+                    "stratify_by": config["modeling"]["stratify_by"],
+                    "rf_config": rf_config,
+                    "max_tfidf_features": config["modeling"]["max_tfidf_features"],
+                    "output_artifact": "random_forest_export",
+                },
+            )
 
         if "test_regression_model" in active_steps:
-
-            ##################
-            # Implement here #
-            ##################
-
-            pass
+            artifact_version = ":latest"
+            model_tag = ":prod"
+            _ = mlflow.run(
+                os.path.join(root_path, 'components', 'test_regression_model'),
+                entry_point="main",
+                parameters={
+                    "mlflow_model": "random_forest_export" + model_tag,
+                    "test_dataset": "test_data.csv" + artifact_version
+                },
+            )
 
 
 if __name__ == "__main__":
